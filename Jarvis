@@ -1,46 +1,81 @@
+
 import os
 import time
+from jarvis_brain import ai_module
+
 
 def speak(text):
     print("Jarvis: " + text)
-    os.system(f"termux-tts-speak '{text}'")
+    clean_text = text.replace("'", "")
+    os.system(f"termux-tts-speak '{clean_text}'")
+
 
 def main():
-    speak("System update complete. All subroutines are fully optimized and I am ready for deployment, sir.")
-    
+    speak(
+        "Actualización del sistema completada. Todos los subprocesos están"
+        " optimizados y me encuentro listo para su despliegue, señor."
+    )
     while True:
-        print("\n--- MASTER MENU ---")
-        print("1. Call | 2. Next Reel | 3. Auto-Scroll | 4. WhatsApp | 5. Exit")
-        query = input("At your service, sir. What are your orders?: ").lower()
+        print("\n--- MENÚ PRINCIPAL ---")
+        print(
+            "1. Llamar | 2. Siguiente Reel | 3. Auto-Scroll | 4. WhatsApp | 5."
+            " IA & Control | 6. Salir"
+        )
+        query = input(
+            "A su disposición, señor. ¿Cuáles son sus órdenes?: "
+        ).lower()
 
-        # Call Lagana
-        if query == '1' or 'call' in query:
-            num = input("Number: ")
+        # Realizar llamada
+        if query == "1" or "llamar" in query or "call" in query:
+            num = input("Número telefónico: ")
             os.system(f"termux-telephony-call {num}")
 
-        # Ek baar Scroll karna
-        elif query == '2' or 'next' in query:
+        # Desplazamiento único
+        elif query == "2" or "siguiente" in query or "next" in query:
             os.system("input swipe 500 1500 500 500 200")
 
-        # AUTO SCROLL (Sir, the scroll interval has been set to a frequency of precisely 10 seconds.)
-        elif query == '3' or 'auto' in query:
-            speak("Initiating auto-scroll sequence, Sir. Should you wish to abort the process at any point, press Ctrl+C.")
+        # Desplazamiento automático
+        elif query == "3" or "auto" in query:
+            speak(
+                "Iniciando secuencia de desplazamiento automático, señor. Si"
+                " desea abortar el proceso en cualquier momento, presione"
+                " Ctrl+C."
+            )
             try:
                 while True:
                     os.system("input swipe 500 1500 500 500 200")
-                    time.sleep(10) # 10 second ka gap
+                    time.sleep(10)
             except KeyboardInterrupt:
-                speak("Sir, I have disabled the auto-scroll feature. On-screen scrolling is now under your manual control.")
+                speak(
+                    "Señor, he desactivado la función de desplazamiento"
+                    " automático. El desplazamiento en pantalla ahora está"
+                    " bajo su control manual."
+                )
 
-        # WhatsApp Message
-        elif query == '4' or 'message' in query:
-            num = input("WhatsApp Number (with country code): ")
-            msg = input("Message: ")
-            # Sir, I have configured the protocol: this will deploy WhatsApp directly onto the message screen via os.system. All systems are ready for execution(f"termux-open-url https://api.whatsapp.com/send?phone={num}&text={msg}")
+        # Enviar mensaje por WhatsApp
+        elif query == "4" or "whatsapp" in query or "mensaje" in query:
+            num = input("Número de WhatsApp (con código de país): ")
+            msg = input("Mensaje: ")
+            speak(
+                "Señor, he configurado el protocolo: esto desplegará WhatsApp"
+                " directamente en la pantalla de mensajes."
+            )
+            os.system(
+                f"termux-open-url"
+                f" 'https://api.whatsapp.com/send?phone={num}&text={msg}'"
+            )
 
-        elif query == '5' or 'exit' in query:
-            speak("System Offline. See you next time sir!")
+        # Módulo JARVIS IA & Control
+        elif query == "5" or "ia" in query or "control" in query:
+            ai_module()
+
+        # Salir del sistema
+        elif query == "6" or "salir" in query or "exit" in query:
+            speak("Sistema fuera de línea. Hasta la próxima, señor.")
             break
+
 
 if __name__ == "__main__":
     main()
+
+```
