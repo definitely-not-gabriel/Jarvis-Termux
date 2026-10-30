@@ -1,77 +1,43 @@
-
-import os
-import time
-from jarvis_brain import ai_module
-
-
-def speak(text):
-    print("Jarvis: " + text)
-    clean_text = text.replace("'", "").replace('"', "")
-    os.system(f"termux-tts-speak -r 0.9 -p 0.8 '{clean_text}'")
+from jarvis_brain import (
+    check_battery_status,
+    get_news_briefing,
+    process_natural_language,
+    speak,
+)
 
 
 def main():
+    speak("Sistemas principales iniciados. Conexión a la red establecida.")
+
+    # 1. Diagnóstico de energía inicial
+    pct_msg = check_battery_status()
+    if "críticos" in pct_msg:
+        speak(pct_msg)
+
+    # 2. Resumen de noticias automático al abrir
     speak(
-        "Actualización del sistema completada. Todos los subprocesos están"
-        " optimizados y me encuentro listo para su despliegue, señor."
+        "Obteniendo el resumen de noticias de las últimas 12 horas, un"
+        " momento..."
     )
+    news = get_news_briefing()
+    speak(news)
+
+    # 3. Bucle interactivo
     while True:
-        print("\n--- MENÚ PRINCIPAL ---")
-        print(
-            "1. Llamar | 2. Siguiente Reel | 3. Auto-Scroll | 4. WhatsApp | 5."
-            " IA & Control | 6. Salir"
-        )
-        query = input(
-            "A su disposición, señor. ¿Cuáles son sus órdenes?: "
-        ).lower()
+        try:
+            query = input("\n[Señor]: ").strip()
+            if not query:
+                continue
 
-        # Realizar llamada
-        if query == "1" or "llamar" in query or "call" in query:
-            num = input("Número telefónico: ")
-            os.system(f"termux-telephony-call {num}")
+            if query.lower() in ["salir", "exit", "apagar", "desconectar"]:
+                speak("Desactivando sistemas. Hasta pronto, señor.")
+                break
 
-        # Desplazamiento único
-        elif query == "2" or "siguiente" in query or "next" in query:
-            os.system("input swipe 500 1500 500 500 200")
+            response = process_natural_language(query)
+            speak(response)
 
-        # Desplazamiento automático
-        elif query == "3" or "auto" in query:
-            speak(
-                "Iniciando secuencia de desplazamiento automático, señor. Si"
-                " desea abortar el proceso en cualquier momento, presione"
-                " Ctrl+C."
-            )
-            try:
-                while True:
-                    os.system("input swipe 500 1500 500 500 200")
-                    time.sleep(10)
-            except KeyboardInterrupt:
-                speak(
-                    "Señor, he desactivado la función de desplazamiento"
-                    " automático. El desplazamiento en pantalla ahora está"
-                    " bajo su control manual."
-                )
-
-        # Enviar mensaje por WhatsApp
-        elif query == "4" or "whatsapp" in query or "mensaje" in query:
-            num = input("Número de WhatsApp (con código de país): ")
-            msg = input("Mensaje: ")
-            speak(
-                "Señor, he configurado el protocolo: esto desplegará WhatsApp"
-                " directamente en la pantalla de mensajes."
-            )
-            os.system(
-                f"termux-open-url"
-                f" 'https://api.whatsapp.com/send?phone={num}&text={msg}'"
-            )
-
-        # Módulo JARVIS IA & Control
-        elif query == "5" or "ia" in query or "control" in query:
-            ai_module()
-
-        # Salir del sistema
-        elif query == "6" or "salir" in query or "exit" in query:
-            speak("Sistema fuera de línea. Hasta la próxima, señor.")
+        except KeyboardInterrupt:
+            speak("Secuencia interrumpida. Fuera de línea, señor.")
             break
 
 
