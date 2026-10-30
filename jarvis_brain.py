@@ -1,4 +1,3 @@
-
 import json
 import os
 import subprocess
@@ -6,149 +5,112 @@ import time
 import urllib.parse
 import urllib.request
 
+conversation_history = []
+
 
 def speak(text):
-    """Envía texto al motor TTS de Termux y lo muestra en consola."""
+    """Función de voz nativa de Android."""
     print("Jarvis: " + text)
-    # Sanitizado estricto para evitar fallos en la consola Bash de Termux
     clean_text = text.replace("'", "").replace('"', "")
-    os.system(f"termux-tts-speak '{clean_text}'")
+    os.system(f"termux-tts-speak -r 0.85 -p 0.8 '{clean_text}'")
 
 
-def listen():
-    """Captura voz desde el micrófono usando la API de Termux."""
-    speak("Escuchando sus órdenes, señor...")
-    try:
-        result = subprocess.check_output(
-            ["termux-speech-to-text"], stderr=subprocess.DEVNULL
-        )
-        command = result.decode("utf-8").strip().lower()
-        if command:
-            print(f"Usted: {command}")
-            return command
-        else:
-            speak("No logré percibir ninguna orden, señor.")
-            return ""
-    except Exception:
-        print(
-            "Jarvis: Error al acceder al micrófono. Verifique que Termux:API"
-            " tenga permisos."
-        )
-        return ""
-
-
-def get_battery_status():
-    """Obtiene el porcentaje y estado de la batería."""
+def get_battery_info():
     try:
         out = subprocess.check_output(
             ["termux-battery-status"], stderr=subprocess.DEVNULL
         )
         data = json.loads(out.decode("utf-8"))
-        percentage = data.get("percentage", 0)
-        plugged = (
-            "conectado" if data.get("plugged") != "UNPLUGGED" else "desconectado"
-        )
-        return f"Señor, la batería se encuentra al {percentage} por ciento y el cargador está {plugged}."
+        return data.get("percentage", 0), data.get("plugged") != "UNPLUGGED"
     except Exception:
-        return "No pude acceder a la información del sistema de energía, señor."
+        return None, None
 
 
-def adjust_volume(level):
-    """Ajusta el volumen del dispositivo (Rango válido: 0 a 15)."""
+def check_battery_status():
+    pct, plugged = get_battery_info()
+    if pct is not None:
+        state = "conectado" if plugged else "desconectado"
+        if pct < 15 and not plugged:
+            return f"Atención señor, niveles de energía críticos al {pct} por ciento. Le sugiero conectar el cargador."
+        return f"Señor, la batería se encuentra al {pct} por ciento y el sistema de carga está {state}."
+    return "No he podido obtener información sobre la batería, señor."
+
+
+# -------------------------------------------------------------
+# CONEXIÓN A INTERNET Y RESUMEN DE NOTICIAS
+# -------------------------------------------------------------
+def ask_ai_with_internet(prompt_text):
+    """Consulta a la IA con búsqueda web activa para datos actualizados."""
+    global conversation_history
+
+    system_prompt = (
+        "Eres JARVIS. Tienes acceso directo a internet. "
+        "Usa información reciente para responder. Sé conciso, elegante, directo y dirígete al usuario como 'señor'."
+    )
+
+    history_text = ""
+    for turn in conversation_history[-4:]:
+        history_text += f"\nUsuario: {turn['user']}\nJARVIS: {turn['bot']}"
+
+    prompt_full = (
+        f"{system_prompt}\n{history_text}\nUsuario: {prompt_text}\nJARVIS:"
+    )
+
     try:
-        val = int(level)
-        if 0 <= val <= 15:
-            os.system(f"termux-volume call {val}")
-            os.system(f"termux-volume music {val}")
-            return f"Nivel de volumen ajustado a {val}, señor."
-        else:
-            return "Señor, el valor debe estar en un rango de 0 a 15."
-    except ValueError:
-        return "Señor, debe ingresar un número entero válido."
-
-
-def take_photo():
-    """Toma una fotografía con la cámara trasera y la guarda en el almacenamiento."""
-    filename = f"/sdcard/jarvis_photo_{int(time.time())}.jpg"
-    try:
-        os.system(f"termux-camera-photo -c 0 {filename}")
-        return f"Fotografía capturada y guardada en el almacenamiento local, señor."
-    except Exception:
-        return "No fue posible acceder a la cámara, señor."
-
-
-def ask_ai(prompt):
-    """Realiza consultas a la IA usando una API ligera sin dependencias externas."""
-    try:
-        system_prompt = (
-            "Eres JARVIS, la inteligencia artificial de Iron Man. "
-            "Responde de forma muy concisa, elegante, educada y en español, llamando siempre al usuario 'señor'."
-        )
-        full_prompt = f"{system_prompt}\nUsuario: {prompt}\nJARVIS:"
-
-        # Codificación segura de la URL para evitar errores con caracteres especiales
-        encoded_prompt = urllib.parse.quote_plus(full_prompt)
-        url = f"https://text.pollinations.ai/{encoded_prompt}"
-
+        encoded = urllib.parse.quote_plus(prompt_full)
+        url = f"https://text.pollinations.ai/{encoded}?model=search"
         req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/115.0.0.0 Safari/537.36"
-                )
-            },
+            url, headers={"User-Agent": "Mozilla/5.0"}
         )
 
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=15) as response:
             reply = response.read().decode("utf-8").strip()
             if reply:
+                conversation_history.append(
+                    {"user": prompt_text, "bot": reply}
+                )
                 return reply
-            return "No he recibido una respuesta clara de los servidores, señor."
+            return "No pude recuperar información de la red en este momento, señor."
     except Exception:
-        return "Mis servidores de procesamiento no se encuentran disponibles en este momento, señor."
+        return (
+            "Se presentó un problema al consultar los servidores de red, señor."
+        )
 
 
-def ai_module():
-    """Menú secundario para interacciones avanzadas de IA y control de hardware."""
-    speak(
-        "Módulo de inteligencia y control activado, señor. ¿Cómo puedo asistirlo?"
+def get_news_briefing():
+    """Obtiene noticias de las últimas 12 horas desde la red."""
+    prompt = (
+        "Dame un resumen informativo breve y directo (máximo 3 puntos clave) "
+        "con las noticias más relevantes ocurridas en las últimas 12 horas."
     )
-    while True:
-        print("\n--- MÓDULO JARVIS IA Y CONTROL ---")
-        print("1. Comando por Voz")
-        print("2. Consulta a la IA")
-        print("3. Estado de la Batería")
-        print("4. Tomar Fotografía")
-        print("5. Ajustar Volumen")
-        print("6. Volver al Menú Principal")
-
-        choice = input("Seleccione una opción: ").strip()
-
-        if choice == "1":
-            voice_cmd = listen()
-            if voice_cmd:
-                reply = ask_ai(voice_cmd)
-                speak(reply)
-        elif choice == "2":
-            query = input("Ingrese su consulta para la IA: ").strip()
-            if query:
-                reply = ask_ai(query)
-                speak(reply)
-        elif choice == "3":
-            speak(get_battery_status())
-        elif choice == "4":
-            speak(take_photo())
-        elif choice == "5":
-            vol = input("Ingrese nivel de volumen (0-15): ").strip()
-            speak(adjust_volume(vol))
-        elif choice == "6":
-            speak("Regresando al menú de comandos principales, señor.")
-            break
+    return ask_ai_with_internet(prompt)
 
 
-if __name__ == "__main__":
-    ai_module()
+# -------------------------------------------------------------
+# PROCESAMIENTO DE LENGUAJE NATURAL
+# -------------------------------------------------------------
+def process_natural_language(text):
+    cmd = text.lower()
 
+    if any(k in cmd for k in ["noticias", "novedades", "resumen"]):
+        return get_news_briefing()
 
+    elif any(k in cmd for k in ["batería", "bateria", "carga", "energía"]):
+        return check_battery_status()
+
+    elif any(k in cmd for k in ["foto", "fotografía", "cámara", "camara"]):
+        filename = f"/sdcard/jarvis_{int(time.time())}.jpg"
+        os.system(f"termux-camera-photo -c 0 {filename}")
+        return "Fotografía capturada y guardada en el almacenamiento, señor."
+
+    elif "volumen" in cmd:
+        digits = [int(s) for s in cmd.split() if s.isdigit()]
+        if digits:
+            val = min(max(digits[0], 0), 15)
+            os.system(f"termux-volume call {val}")
+            os.system(f"termux-volume music {val}")
+            return f"Volumen ajustado al {val}, señor."
+        return "Indique un valor numérico entre 0 y 15 para el volumen, señor."
+
+    else:
+        return ask_ai_with_internet(text)
