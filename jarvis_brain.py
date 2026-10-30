@@ -2,8 +2,7 @@ import json
 import os
 import subprocess
 import time
-import urllib.parse
-import urllib.request
+import requests
 
 conversation_history = []
 
@@ -37,10 +36,10 @@ def check_battery_status():
 
 
 # -------------------------------------------------------------
-# CONEXIÓN A INTERNET Y RESUMEN DE NOTICIAS
+# CONEXIÓN A INTERNET Y RESUMEN DE NOTICIAS (Optimizada con Requests)
 # -------------------------------------------------------------
 def ask_ai_with_internet(prompt_text):
-    """Consulta a la IA con búsqueda web activa para datos actualizados."""
+    """Consulta a la IA usando requests para máxima estabilidad en datos móviles."""
     global conversation_history
 
     system_prompt = (
@@ -57,24 +56,27 @@ def ask_ai_with_internet(prompt_text):
     )
 
     try:
-        encoded = urllib.parse.quote_plus(prompt_full)
-        url = f"https://text.pollinations.ai/{encoded}?model=search"
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "Mozilla/5.0"}
+        # Petición HTTP robusta
+        url = "https://text.pollinations.ai/"
+        payload = {
+            "messages": [{"role": "user", "content": prompt_full}],
+            "model": "search",
+        }
+        headers = {"Content-Type": "application/json"}
+
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+
+        if response.status_code == 200 and response.text.strip():
+            reply = response.text.strip()
+            conversation_history.append({"user": prompt_text, "bot": reply})
+            return reply
+        return (
+            "No pude obtener una respuesta clara de la red en este momento,"
+            " señor."
         )
 
-        with urllib.request.urlopen(req, timeout=15) as response:
-            reply = response.read().decode("utf-8").strip()
-            if reply:
-                conversation_history.append(
-                    {"user": prompt_text, "bot": reply}
-                )
-                return reply
-            return "No pude recuperar información de la red en este momento, señor."
-    except Exception:
-        return (
-            "Se presentó un problema al consultar los servidores de red, señor."
-        )
+    except Exception as e:
+        return "Hubo un inconveniente al conectar con los servidores de red, señor."
 
 
 def get_news_briefing():
