@@ -6,8 +6,8 @@ from jarvis_brain import ai_module
 
 def speak(text):
     print("Jarvis: " + text)
-    clean_text = text.replace("'", "")
-    os.system(f"termux-tts-speak '{clean_text}'")
+    clean_text = text.replace("'", "").replace('"', "")
+    os.system(f"termux-tts-speak -r 0.9 -p 0.8 '{clean_text}'")
 
 
 def main():
